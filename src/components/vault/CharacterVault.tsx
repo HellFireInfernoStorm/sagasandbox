@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Loader2, Plus, Upload } from "lucide-react";
 import type { Character, CharacterRole } from "@/types/app";
+import { getVisualTraits } from "@/types/app";
 import { RemoteImage } from "@/components/shared/RemoteImage";
 import { cn } from "@/lib/cn";
 
@@ -148,7 +149,7 @@ export function CharacterVault({
               </span>
             ) : null}
             <p className="mt-1 line-clamp-2 text-xs text-[#9ca3af]">
-              {c.visual_traits?.hair ?? c.description ?? "—"}
+              {getVisualTraits(c.visual_traits).hair ?? c.description ?? "—"}
             </p>
           </button>
         ))}
