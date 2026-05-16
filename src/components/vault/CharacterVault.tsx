@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { Loader2, Plus, Upload } from "lucide-react";
 import type { Character, CharacterRole } from "@/types/app";
+import { RemoteImage } from "@/components/shared/RemoteImage";
 import { cn } from "@/lib/cn";
 
 interface CharacterVaultProps {
   projectId: string;
   characters: Character[];
-  onCharactersChange: (characters: Character[]) => void;
+  onCharactersChange: React.Dispatch<React.SetStateAction<Character[]>>;
 }
 
 const emptyTraits = {
@@ -50,7 +51,7 @@ export function CharacterVault({
       });
       if (!res.ok) throw new Error("Failed to create character");
       const { character } = (await res.json()) as { character: Character };
-      onCharactersChange([...characters, character]);
+      onCharactersChange((prev) => [...prev, character]);
       setShowForm(false);
       setForm({
         name: "",
@@ -75,8 +76,8 @@ export function CharacterVault({
     });
     if (!res.ok) throw new Error("Update failed");
     const { character } = (await res.json()) as { character: Character };
-    onCharactersChange(
-      characters.map((c) => (c.id === id ? character : c)),
+    onCharactersChange((prev) =>
+      prev.map((c) => (c.id === id ? character : c)),
     );
     return character;
   }
@@ -94,8 +95,8 @@ export function CharacterVault({
       const { reference_image_url } = (await res.json()) as {
         reference_image_url: string;
       };
-      onCharactersChange(
-        characters.map((c) =>
+      onCharactersChange((prev) =>
+        prev.map((c) =>
           c.id === cId ? { ...c, reference_image_url } : c,
         ),
       );
@@ -222,18 +223,22 @@ export function CharacterVault({
 function Portrait({ character }: { character: Character }) {
   if (character.generated_portrait_url) {
     return (
-      <img
+      <RemoteImage
         src={character.generated_portrait_url}
         alt={character.name}
-        className="aspect-square w-full rounded-md object-cover"
+        width={128}
+        height={128}
+        className="aspect-square h-auto w-full rounded-md object-cover"
       />
     );
   }
+  const label =
+    character.reference_image_url && !character.generated_portrait_url
+      ? "Generating portrait…"
+      : "No portrait";
   return (
     <div className="flex aspect-square w-full items-center justify-center rounded-md bg-[#252528] text-center text-[10px] text-[#9ca3af]">
-      {character.generated_portrait_url === null
-        ? "Generating portrait…"
-        : "No portrait"}
+      {label}
     </div>
   );
 }

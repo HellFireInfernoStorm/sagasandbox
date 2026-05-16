@@ -20,12 +20,13 @@ import { Check, Loader2, Plus } from "lucide-react";
 import type { LocationPin, TimelineEvent } from "@/types/app";
 import type { Character } from "@/types/app";
 import { GenStatusImage } from "@/components/shared/GenStatusImage";
+import { RemoteImage } from "@/components/shared/RemoteImage";
 interface TimelineStripProps {
   projectId: string;
   events: TimelineEvent[];
   pins: LocationPin[];
   characters: Character[];
-  onEventsChange: (events: TimelineEvent[]) => void;
+  onEventsChange: React.Dispatch<React.SetStateAction<TimelineEvent[]>>;
 }
 
 export function TimelineStrip({
@@ -67,7 +68,7 @@ export function TimelineStrip({
       gen_status: "pending",
       created_at: new Date().toISOString(),
     };
-    onEventsChange([...events, optimistic]);
+    onEventsChange((prev) => [...prev, optimistic]);
     setShowAdd(false);
     try {
       const res = await fetch(`/api/projects/${projectId}/events`, {
@@ -82,14 +83,14 @@ export function TimelineStrip({
       });
       if (!res.ok) throw new Error("Create failed");
       const { event } = (await res.json()) as { event: TimelineEvent };
-      onEventsChange(
-        [...events.filter((ev) => ev.id !== optimistic.id), event].sort(
+      onEventsChange((prev) =>
+        [...prev.filter((ev) => ev.id !== optimistic.id), event].sort(
           (a, b) => a.sequence_order - b.sequence_order,
         ),
       );
       setForm({ title: "", description: "", pin_id: "" });
     } catch {
-      onEventsChange(events.filter((ev) => ev.id !== optimistic.id));
+      onEventsChange((prev) => prev.filter((ev) => ev.id !== optimistic.id));
     }
   }
 
@@ -251,9 +252,11 @@ function SortableEventCard({
       >
         <div className="relative h-10 shrink-0 overflow-hidden bg-[#252528]">
           {event.gen_status === "done" && event.generated_image_url ? (
-            <img
+            <RemoteImage
               src={event.generated_image_url}
               alt=""
+              width={160}
+              height={40}
               className="h-full w-full object-cover"
             />
           ) : event.gen_status === "generating" ? (
