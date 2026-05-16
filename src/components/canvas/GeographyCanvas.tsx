@@ -21,6 +21,7 @@ import {
 } from "@/hooks/useRealtime";
 import { parseKonvaCanvasState } from "@/lib/canvas-state";
 import { cn } from "@/lib/cn";
+import { resolveDisplayName } from "@/lib/display-name";
 import { PinCreator } from "./PinCreator";
 
 export type CanvasTool = "brush" | "pan";
@@ -35,6 +36,8 @@ export interface GeographyCanvasProps {
   onHydrated?: () => void;
   loading?: boolean;
   userId?: string;
+  /** Local user label for cursor broadcast and self presence. */
+  displayName?: string | null;
   apiAvailable?: boolean;
 }
 
@@ -56,6 +59,7 @@ const CURSOR_BROADCAST_MS = 80;
 interface PeerCursor {
   x: number;
   y: number;
+  label: string;
   updatedAt: number;
 }
 
@@ -77,10 +81,14 @@ export const GeographyCanvas = forwardRef<
     onHydrated,
     loading = false,
     userId = "local",
+    displayName = null,
     apiAvailable = true,
   },
   ref,
 ) {
+  const localCursorLabel = resolveDisplayName(displayName, userId, {
+    selfUserId: userId,
+  });
   const containerRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Konva.Stage>(null);
   const cursorThrottleRef = useRef(0);
@@ -149,9 +157,18 @@ export const GeographyCanvas = forwardRef<
           const x = op.payload.x;
           const y = op.payload.y;
           if (typeof x !== "number" || typeof y !== "number") return;
+          const peerLabel =
+            typeof op.payload.display_name === "string"
+              ? resolveDisplayName(op.payload.display_name, op.user_id)
+              : resolveDisplayName(undefined, op.user_id);
           setPeerCursors((prev) => ({
             ...prev,
-            [op.user_id]: { x, y, updatedAt: Date.now() },
+            [op.user_id]: {
+              x,
+              y,
+              label: peerLabel,
+              updatedAt: Date.now(),
+            },
           }));
           break;
         }
@@ -276,10 +293,14 @@ export const GeographyCanvas = forwardRef<
         op: "cursor",
         user_id: userId,
         object_id: userId,
-        payload: { x: point.x, y: point.y },
+        payload: {
+          x: point.x,
+          y: point.y,
+          display_name: localCursorLabel,
+        },
       });
     },
-    [projectId, userId],
+    [projectId, userId, localCursorLabel],
   );
 
   const handlePointerMove = useCallback(() => {
@@ -425,11 +446,11 @@ export const GeographyCanvas = forwardRef<
             <Group key={`cursor-${peerId}`} x={cursor.x} y={cursor.y}>
               <Circle radius={6} fill="#10b981" stroke="#0e0e0f" strokeWidth={2} />
               <Text
-                text="Collaborator"
+                text={cursor.label}
                 fontSize={10}
                 fill="#10b981"
                 y={10}
-                offsetX={28}
+                offsetX={Math.min(56, cursor.label.length * 3.2)}
               />
             </Group>
           ))}

@@ -49,6 +49,16 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     notFound()
   }
 
+  let displayName: string | null = null
+  if (user?.id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle()
+    displayName = profile?.display_name ?? null
+  }
+
   const [{ data: pins }, { data: events }, { data: characters }] =
     await Promise.all([
       supabase
@@ -76,6 +86,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       initialCharacters={characters ?? []}
       initialCanvasState={project.canvas_state as Record<string, unknown>}
       userId={user?.id}
+      displayName={displayName}
     />
   )
 }

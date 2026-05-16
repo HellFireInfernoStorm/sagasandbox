@@ -17,7 +17,12 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Check, Loader2, Plus } from "lucide-react";
-import type { LocationPin, TimelineEvent, Character } from "@/types/app";
+import type {
+  GhostTimelineSuggestion,
+  LocationPin,
+  TimelineEvent,
+  Character,
+} from "@/types/app";
 import { asGenStatus } from "@/types/app";
 import { GenStatusImage } from "@/components/shared/GenStatusImage";
 import { RemoteImage } from "@/components/shared/RemoteImage";
@@ -32,8 +37,11 @@ interface TimelineStripProps {
   events: TimelineEvent[];
   pins: LocationPin[];
   characters: Character[];
+  ghostSuggestions?: GhostTimelineSuggestion[];
   apiAvailable?: boolean;
   onEventsChange: Dispatch<SetStateAction<TimelineEvent[]>>;
+  onApproveGhost?: (id: string) => void;
+  onDismissGhost?: (id: string) => void;
 }
 
 export function TimelineStrip({
@@ -41,8 +49,11 @@ export function TimelineStrip({
   events,
   pins,
   characters,
+  ghostSuggestions = [],
   apiAvailable = true,
   onEventsChange,
+  onApproveGhost,
+  onDismissGhost,
 }: TimelineStripProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [showAdd, setShowAdd] = useState(false);
@@ -146,7 +157,7 @@ export function TimelineStrip({
     return characters.filter((c) => lower.includes(c.name.toLowerCase()));
   }
 
-  if (events.length === 0 && !showAdd) {
+  if (events.length === 0 && ghostSuggestions.length === 0 && !showAdd) {
     return (
       <div className="flex h-full flex-col justify-center gap-2 px-4">
         {!apiAvailable ? (
@@ -184,6 +195,15 @@ export function TimelineStrip({
           strategy={horizontalListSortingStrategy}
         >
           <div className="flex min-h-0 flex-1 items-stretch gap-3 overflow-x-auto px-4 py-3">
+            {ghostSuggestions.map((ghost) => (
+              <GhostEventCard
+                key={ghost.id}
+                ghost={ghost}
+                pinLabel={pinLabel(ghost.pin_id)}
+                onApprove={() => onApproveGhost?.(ghost.id)}
+                onDismiss={() => onDismissGhost?.(ghost.id)}
+              />
+            ))}
             {events.map((ev) => (
               <SortableEventCard
                 key={ev.id}
@@ -253,6 +273,55 @@ export function TimelineStrip({
           </button>
         </form>
       ) : null}
+    </div>
+  );
+}
+
+function GhostEventCard({
+  ghost,
+  pinLabel,
+  onApprove,
+  onDismiss,
+}: {
+  ghost: GhostTimelineSuggestion;
+  pinLabel: string | null;
+  onApprove?: () => void;
+  onDismiss?: () => void;
+}) {
+  return (
+    <div
+      className="relative flex h-[88px] w-40 shrink-0 flex-col overflow-hidden rounded-lg border border-dashed border-[#9ca3af]/50 bg-[#1a1a1e]/50 opacity-50"
+      title="Copilot suggestion — approve to commit"
+    >
+      <div className="flex flex-1 flex-col justify-center px-2 py-1">
+        <p className="truncate text-xs font-medium text-[#9ca3af]">
+          {ghost.title}
+        </p>
+        {pinLabel ? (
+          <span className="truncate text-[10px] text-[#9ca3af]/80">
+            📍 {pinLabel}
+          </span>
+        ) : null}
+        <span className="mt-0.5 text-[9px] uppercase tracking-wide text-[#9ca3af]">
+          Ghost
+        </span>
+      </div>
+      <div className="flex gap-1 border-t border-[#2a2a2e]/50 px-1 py-0.5">
+        <button
+          type="button"
+          onClick={onApprove}
+          className="flex-1 rounded px-1 py-0.5 text-[9px] text-[#10b981] hover:bg-[#10b981]/10"
+        >
+          Approve
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="flex-1 rounded px-1 py-0.5 text-[9px] text-[#9ca3af] hover:bg-[#252528]"
+        >
+          Dismiss
+        </button>
+      </div>
     </div>
   );
 }

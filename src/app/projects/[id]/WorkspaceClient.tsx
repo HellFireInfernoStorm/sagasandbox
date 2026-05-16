@@ -17,6 +17,8 @@ import {
 import type { GeographyCanvasHandle } from "@/components/canvas/GeographyCanvas";
 import { useProjectRealtime } from "@/hooks/useRealtime";
 import type { CanvasOpPayload } from "@/hooks/useRealtime";
+import { CopilotPanel } from "@/components/Copilot/CopilotPanel";
+import { TimeTravelScrubber } from "@/components/history/TimeTravelScrubber";
 import { useUIStore } from "@/store/ui-store";
 import { toastError } from "@/store/toast-store";
 import { themeAccent } from "@/lib/constants";
@@ -59,6 +61,7 @@ export interface WorkspaceClientProps {
   initialCharacters: Character[];
   initialCanvasState?: Record<string, unknown> | null;
   userId?: string;
+  displayName?: string | null;
   /** When false, mutation UIs stay disabled (e.g. mock demo workspace). */
   apiAvailable?: boolean;
 }
@@ -72,6 +75,7 @@ export function WorkspaceClient({
   initialCharacters,
   initialCanvasState = null,
   userId: initialUserId,
+  displayName: initialDisplayName,
   apiAvailable: apiAvailableProp,
 }: WorkspaceClientProps) {
   const [pins, setPins] = useState(initialPins);
@@ -79,6 +83,8 @@ export function WorkspaceClient({
   const [characters, setCharacters] = useState(initialCharacters);
   const [activeNav, setActiveNav] = useState<SidebarNav>("canvas");
   const [userId, setUserId] = useState(initialUserId ?? "local");
+  const [displayName, setDisplayName] = useState(initialDisplayName ?? null);
+  const [historyIndex, setHistoryIndex] = useState(0);
   const [canvasHydrating, setCanvasHydrating] = useState(true);
   const [panelsBooting, setPanelsBooting] = useState(true);
   const [liveExport, setLiveExport] = useState<Export | null>(null);
@@ -91,6 +97,9 @@ export function WorkspaceClient({
 
   const {
     selectedPin,
+    ghostSuggestions,
+    setGhostSuggestions,
+    removeGhostSuggestion,
     setSelectedPin,
     sidebarMode,
     setSidebarMode,
@@ -109,10 +118,32 @@ export function WorkspaceClient({
     if (!isSupabaseConfigured()) return;
 
     const supabase = createClient();
-    void supabase.auth.getUser().then(({ data }) => {
-      if (data.user?.id) setUserId(data.user.id);
+    void supabase.auth.getUser().then(async ({ data }) => {
+      const uid = data.user?.id;
+      if (!uid) return;
+      setUserId(uid);
+      if (initialDisplayName) return;
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", uid)
+        .maybeSingle();
+      if (profile?.display_name) setDisplayName(profile.display_name);
     });
-  }, [initialUserId]);
+  }, [initialUserId, initialDisplayName]);
+
+  useEffect(() => {
+    if (!isDemo || ghostSuggestions.length > 0) return;
+    setGhostSuggestions([
+      {
+        id: "ghost-demo-suggestion",
+        title: "Secret passage (suggested)",
+        description: "Copilot proposes a hidden route under the tavern.",
+        pin_id: pins[0]?.id ?? null,
+        sequence_order: events.length,
+      },
+    ]);
+  }, [isDemo, ghostSuggestions.length, pins, events.length, setGhostSuggestions]);
 
   useEffect(() => {
     return () => {
@@ -264,6 +295,14 @@ export function WorkspaceClient({
           else setSidebarMode(null);
         }}
         onExportClick={() => setSidebarMode("export")}
+        headerEnd={
+          <TimeTravelScrubber
+            snapshotCount={0}
+            value={historyIndex}
+            onChange={setHistoryIndex}
+            disabled={!apiAvailable}
+          />
+        }
         sidebarContent={sidebarContent}
         timelineContent={
           panelsBooting ? (
@@ -274,8 +313,11 @@ export function WorkspaceClient({
               events={events}
               pins={pins}
               characters={characters}
+              ghostSuggestions={ghostSuggestions}
               apiAvailable={apiAvailable}
               onEventsChange={setEvents}
+              onApproveGhost={(id) => removeGhostSuggestion(id)}
+              onDismissGhost={(id) => removeGhostSuggestion(id)}
             />
           )
         }
@@ -302,6 +344,7 @@ export function WorkspaceClient({
             projectId={project.id}
             pins={pins}
             userId={userId}
+            displayName={displayName}
             apiAvailable={apiAvailable}
             initialCanvasState={initialCanvasState}
             loading={canvasHydrating}
@@ -333,6 +376,8 @@ export function WorkspaceClient({
           }}
         />
       ) : null}
+
+      <CopilotPanel projectName={project.name} />
     </div>
   );
 }

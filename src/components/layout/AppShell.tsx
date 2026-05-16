@@ -18,6 +18,7 @@ export interface AppShellProps {
   children?: React.ReactNode;
   sidebarContent?: React.ReactNode;
   timelineContent?: React.ReactNode;
+  headerEnd?: React.ReactNode;
   activeNav?: SidebarNav;
   onNavChange?: (nav: SidebarNav) => void;
   onExportClick?: () => void;
@@ -36,6 +37,7 @@ export function AppShell({
   children,
   sidebarContent,
   timelineContent,
+  headerEnd,
   activeNav = "canvas",
   onNavChange,
   onExportClick,
@@ -59,14 +61,17 @@ export function AppShell({
             {theme.replace(/_/g, " ")}
           </span>
         </div>
-        <button
-          type="button"
-          onClick={onExportClick}
-          className="inline-flex items-center gap-2 rounded-md border border-[#2a2a2e] bg-[#1a1a1e] px-3 py-1.5 text-sm font-medium transition hover:border-[#7c3aed] hover:text-white"
-        >
-          <Download className="h-4 w-4" />
-          Export
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          {headerEnd}
+          <button
+            type="button"
+            onClick={onExportClick}
+            className="inline-flex items-center gap-2 rounded-md border border-[#2a2a2e] bg-[#1a1a1e] px-3 py-1.5 text-sm font-medium transition hover:border-[#7c3aed] hover:text-white"
+          >
+            <Download className="h-4 w-4" />
+            Export
+          </button>
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
