@@ -450,3 +450,65 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+/** Row aliases — single source of truth for UI and API (avoids drift from hand-written shapes). */
+export type Profile = Tables<"profiles">
+export type Project = Tables<"projects">
+export type ProjectInsert = TablesInsert<"projects">
+export type LocationPin = Tables<"location_pins">
+export type TimelineEvent = Tables<"timeline_events">
+export type Character = Tables<"characters">
+export type Export = Tables<"exports">
+export type ProjectMember = Tables<"project_members">
+
+/** Domain enums aligned with `gen_status` / export columns (not Postgres enums). */
+export type GenStatus = "pending" | "generating" | "done" | "error"
+export type ExportType = "storyboard_pdf" | "audio_script"
+export type ExportStatus = "queued" | "processing" | "done" | "error"
+export type CharacterRole = "primary" | "secondary"
+
+export type VisualTraits = {
+  hair?: string
+  build?: string
+  clothing?: string
+  features?: string
+}
+
+export type StyleConfig = {
+  aesthetic?: string
+  aesthetic_style?: string
+  theme?: string
+  tone?: string
+}
+
+/** Copilot proposal before user approval (ghost timeline node). */
+export type GhostTimelineSuggestion = Pick<
+  TimelineEvent,
+  "title" | "description" | "pin_id" | "sequence_order"
+> & {
+  id: string
+}
+
+const GEN_STATUSES: GenStatus[] = ["pending", "generating", "done", "error"]
+
+export function asGenStatus(value: string | null | undefined): GenStatus {
+  if (value && GEN_STATUSES.includes(value as GenStatus)) {
+    return value as GenStatus
+  }
+  return "pending"
+}
+
+export function getVisualTraits(
+  traits: Character["visual_traits"],
+): VisualTraits {
+  if (!traits || typeof traits !== "object" || Array.isArray(traits)) {
+    return {}
+  }
+  const t = traits as Record<string, unknown>
+  return {
+    hair: typeof t.hair === "string" ? t.hair : undefined,
+    build: typeof t.build === "string" ? t.build : undefined,
+    clothing: typeof t.clothing === "string" ? t.clothing : undefined,
+    features: typeof t.features === "string" ? t.features : undefined,
+  }
+}
