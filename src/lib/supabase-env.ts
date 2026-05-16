@@ -4,7 +4,7 @@ export function isSupabaseConfigured(): boolean {
   return Boolean(
     url &&
       key &&
-      !url.includes("placeholder") &&
-      key !== "placeholder-anon-key",
+      !url.includes("example.invalid") &&
+      key !== "anon-key-not-configured",
   )
 }
