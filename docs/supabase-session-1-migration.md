@@ -2,11 +2,11 @@
 
 **Canonical agent playbook:** [sagasandbox_parallel_cursor_plan.md](./sagasandbox_parallel_cursor_plan.md) (Agent B sections B1–B10)  
 **Project ref:** set via `NEXT_PUBLIC_SUPABASE_URL` in `.env.local` (Dashboard → Project Settings → General)  
-**Status:** Remote schema applied. Agent B committed repo types, fal helper, edge functions (deployed), and B4 exports bucket migration.
+**Status:** All migrations applied. All edge functions deployed (v5 process-export with Kokoro TTS + character voice wiring). PR review blockers 1–4 resolved.
 
 **Vercel integration (managing agent):** [vercel-supabase-orchestrator.md](./integrations/vercel-supabase-orchestrator.md)
 
-## Migrations applied (remote only)
+## Migrations applied (remote)
 
 | Name | Contents |
 |------|----------|
@@ -15,6 +15,10 @@
 | `initial_schema_entities` | `location_pins`, `timeline_events`, `characters`, `event_characters`, `exports` |
 | `initial_schema_rls_entities` | RLS on entity tables |
 | `initial_schema_realtime_storage` | Realtime publication, `images`/`audio` buckets (private), storage policies |
+| `20260516130000_exports_bucket_and_generated_storage` | `exports` bucket (private) + generated image RLS |
+| `20260516140000_security_hardening` | Revoke trigger EXECUTE from anon/authenticated; set search_path on helpers |
+| `20260516150000_audio_bucket_and_char_upload_policy` | `audio` bucket; character image upload RLS |
+| `20260516160000_audio_wav_mime_and_char_rls` | Add `audio/wav` to MIME types; tighten char upload RLS to project membership |
 
 ## Tables (all RLS enabled)
 
@@ -27,39 +31,30 @@
 - `characters.fal_request_id`, `characters.gen_status` (portrait jobs)
 - Realtime includes `characters` (B1 only lists pins, events, exports)
 
-## Drift vs parallel plan B4 (resolve in next migration)
-
-| Item | Parallel plan | Remote today |
-|------|---------------|--------------|
-| `images` / `audio` buckets | Public read | Private + project-scoped RLS |
-| `exports` bucket | Private, PDF/JSON | **Not created** |
-| Storage path | `characters/${cId}/reference.jpg` etc. | `{project_id}/...` convention |
-
-Team decision needed: switch buckets to public (simpler URLs) or keep private + signed URLs.
-
 ## Agent B deliverables (in repo)
 
 - `/types/db.ts` + `/types/app.ts` (**B3** — unblocks Agents A & C)
 - `/src/lib/fal.ts` + `/src/app/api/webhooks/fal/route.ts` (**B5**)
 - `/src/lib/realtime-spec.ts` (**B7**)
 - `supabase/functions/handle-fal-webhook/`, `process-export/`, `cascade-regen/` (**B6**, **B8**, **B9**)
-- `supabase/migrations/20260516130000_exports_bucket_and_generated_storage.sql` (**B4**)
+- `supabase/migrations/20260516130000_*` through `20260516160000_*` (**B4** + review fixes)
 
 ## Edge functions deployed (verify_jwt: false)
 
-| Slug | Version |
-|------|---------|
-| `handle-fal-webhook` | v1 |
-| `process-export` | v1 |
-| `cascade-regen` | v1 |
+| Slug | Version | Notes |
+|------|---------|-------|
+| `handle-fal-webhook` | v1 | webhook → storage → db |
+| `process-export` | **v5** | Kokoro TTS; character voice_id wiring per event; no ElevenLabs |
+| `cascade-regen` | v1 | style-change batch regen |
 
-Set Edge secrets: `FAL_KEY`, `ELEVENLABS_API_KEY`, optional `ELEVENLABS_DEFAULT_VOICE_ID` (Supabase Dashboard → Edge Functions → Secrets).
+**Required Edge secret:** `FAL_KEY` only (Supabase Dashboard → Edge Functions → Secrets). Covers both image generation and Kokoro TTS audio.
 
 ## B10 (demo audio)
 
-Blocked until Agent A runs `scripts/seed-demo.ts` and shares demo `project_id` + event IDs.
+Demo project `64883e7a-c996-446a-b0ff-2f2f4515e5e6` created. Run an `audio_script` export via the UI to generate TTS.
 
-## Security advisor warnings (Phase 7)
+## Security advisor warnings — RESOLVED
 
-- Revoke `EXECUTE` on `handle_new_user` / `handle_new_project` from `anon`/`authenticated`
-- Set `search_path` on `set_updated_at`, `storage_project_id`
+- Revoke `EXECUTE` on trigger functions from `anon`/`authenticated` ✅ (`20260516140000`)
+- Set `search_path` on `set_updated_at`, `storage_project_id` ✅ (`20260516140000`)
+- Character upload RLS tightened to project-membership check ✅ (`20260516160000`)
